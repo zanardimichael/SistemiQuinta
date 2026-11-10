@@ -1,11 +1,8 @@
 ---
-title: Dispensa
-description: Dispensa del corso di
+title: Dispensa di Sistemi e Reti - Quinta
+description: Dispensa del corso di Sistemi e Reti
 template: splash # Remove or comment out this line to display the site sidebar on this page.
 hero:
-  tagline: Dispensa del corso di <br/> Creato dal Prof. Michael Zanardi
-  image:
-    file: /public/favicon.svg
   actions:
     - text: Inizia
       link: /lezioni
@@ -13,14 +10,38 @@ hero:
     - text: Contenuti del Corso
       link: /#contenuti-del-corso
       icon: external
-      variant: minimal
+      variant: minimal*/
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
+import { HeroX } from '@six-tech/starlight-theme-six/components';
+import heroImage from '/public/sistemi.jpg';
 
-## Contenuti del Corso
+<HeroX
+	tagline="Dispensa del corso di Sistemi e Reti <br/> Creato dal Prof. Michael Zanardi"
+	height="400px"
+	mt="4rem"
+	mb="2rem"
+	taglineColor="#fff"
+	image={{
+		background: heroImage,
+		backgroundSize: "cover",
+		contentPosition: "middle-center"
+	}}
+/>
 
-<CardGrid stagger>
-	<Card title="Card" icon="seti:notebook">
-	</Card>
-</CardGrid>
+[//]: # (<CardGrid>)
+
+[//]: # (	<Card title="Card" icon="seti:notebook">)
+
+[//]: # (	</Card>)
+
+[//]: # (	<Card title="Card" icon="seti:notebook">)
+
+[//]: # (	</Card>)
+
+[//]: # (</CardGrid>)
+
+<Card title="Card" icon="warning">
+	Sito in preparazione
+</Card>
