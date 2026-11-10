@@ -3,6 +3,7 @@ import starlight from '@astrojs/starlight';
 import starlightThemeNova from 'starlight-theme-nova';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import starlightThemeSix from '@six-tech/starlight-theme-six'
 
 export default defineConfig({
 	site: 'https://classeprima.zanardimichael.it',
@@ -15,7 +16,7 @@ export default defineConfig({
 
 	integrations: [
 		starlight({
-			title: '<Nome Dispensa>',
+			title: 'Sistemi e Reti - Quinta',
 			logo: {
 				src: '/public/favicon.svg',
 			},
@@ -30,7 +31,7 @@ export default defineConfig({
 			],
 
 			plugins: [
-				starlightThemeNova(),
+				starlightThemeSix({}),
 			],
 
 			head: [
