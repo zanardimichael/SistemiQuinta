@@ -1,0 +1,119 @@
+---
+title: Creazione e assegnazione delle VLAN
+description: Laboratorio I - Creazione e assegnazione VLAN su switch Cisco
+---
+
+import { Steps } from '@six-tech/starlight-theme-six/components';
+import { Aside } from "@astrojs/starlight/components";
+import { default as Callout } from "/src/components/Callout.astro";
+
+Una **VLAN** (Virtual LAN) divide una rete fisica in più reti logiche separate. Gli host di VLAN diverse non comunicano tra loro a livello 2, anche se sono collegati allo stesso switch. In questo laboratorio creiamo le VLAN su uno switch Cisco da riga di comando (CLI).
+
+<Callout icon="information" title="Scenario di esempio">
+
+| VLAN | Nome | Porte |
+|------|------|-------|
+| 10 | AMMINISTRAZIONE | Fa0/1 - Fa0/5 |
+| 20 | DIDATTICA | Fa0/6 - Fa0/10 |
+| 30 | LABORATORIO | Fa0/11 - Fa0/15 |
+</Callout>
+
+## Prerequisiti
+
+- Uno switch Cisco (reale o simulato in Packet Tracer).
+- Accesso alla console o alla CLI dello switch.
+- Conoscenza dei modi operativi di IOS: `user EXEC`, `privileged EXEC` e `global configuration`.
+
+## Procedura
+
+<Steps>
+
+### Entrare in modalità di configurazione globale
+
+```bash
+Switch> enable
+Switch# configure terminal
+Switch(config)#
+```
+
+### Creare la VLAN e assegnarle un nome
+
+```bash
+Switch(config)# vlan 10
+Switch(config-vlan)# name AMMINISTRAZIONE
+Switch(config-vlan)# exit
+Switch(config)# vlan 20
+Switch(config-vlan)# name DIDATTICA
+Switch(config-vlan)# exit
+Switch(config)# vlan 30
+Switch(config-vlan)# name LABORATORIO
+Switch(config-vlan)# exit
+```
+
+<Aside type="note">
+Il nome è facoltativo. Se lo ometti, IOS assegna `VLANxxxx`, ad esempio `VLAN0010`.
+</Aside>
+
+### Assegnare le porte alle VLAN
+
+Le porte di accesso (access port) appartengono a una sola VLAN.
+
+```bash
+Switch(config)# interface range fastEthernet 0/1 - 5
+Switch(config-if-range)# switchport mode access
+Switch(config-if-range)# switchport access vlan 10
+Switch(config-if-range)# exit
+
+Switch(config)# interface range fastEthernet 0/6 - 10
+Switch(config-if-range)# switchport mode access
+Switch(config-if-range)# switchport access vlan 20
+Switch(config-if-range)# exit
+
+Switch(config)# interface range fastEthernet 0/11 - 15
+Switch(config-if-range)# switchport mode access
+Switch(config-if-range)# switchport access vlan 30
+Switch(config-if-range)# end
+```
+
+### Verificare la configurazione
+
+```bash
+Switch# show vlan brief
+```
+
+L'output deve elencare le VLAN 10, 20 e 30 con le porte assegnate.
+
+```bash
+Switch# show interfaces fa0/1 switchport
+```
+
+### Salvare la configurazione
+
+```bash
+Switch# copy running-config startup-config
+```
+Oppure
+```bash
+Switch# write
+```
+
+</Steps>
+
+## Comandi utili
+
+| Comando                     | Funzione                            |
+|-----------------------------|-------------------------------------|
+| `show vlan brief`           | Elenca le VLAN e le porte associate |
+| `show vlan id 10`           | Mostra i dettagli di una VLAN       |
+| `no vlan 10`                | Elimina la VLAN 10                  |
+| `switchport access vlan 10` | Assegna la porta alla VLAN 10       |
+
+<Aside type="caution" title="Attenzione">
+Se elimini una VLAN con `no vlan ID`, le porte assegnate restano associate a una VLAN inesistente e non funzionano. Riassegnale a un'altra VLAN.
+</Aside>
+
+## Esercizio
+
+1. Crea le VLAN 40 (`OSPITI`) e 50 (`SERVER`).
+2. Assegna le porte Fa0/16-20 alla VLAN 40 e Fa0/21-24 alla VLAN 50.
+3. Collega due PC a porte di VLAN diverse e verifica con `ping` che non comunichino.
