@@ -7,7 +7,7 @@ import starlightThemeSix from '@six-tech/starlight-theme-six';
 import ciscoLang from './src/grammars/ios.tmLanguage.json' with { type: 'json' };
 
 export default defineConfig({
-	site: 'https://classeprima.zanardimichael.it',
+	site: 'https://sistemiquinta.zanardimichael.it',
 	base: '/',
 
 	markdown: {
