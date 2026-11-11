@@ -80,8 +80,8 @@ export default defineConfig({
 							link: '/lezioni/',
 						},
 						{
-							label: 'Introduzione',
-							autogenerate: { directory: 'lezioni/introduzione' },
+							label: 'Laboratorio I - VLAN',
+							autogenerate: { directory: 'lezioni/cisco' },
 							collapsed: true,
 						},
 					]

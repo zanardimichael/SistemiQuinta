@@ -1,0 +1,172 @@
+---
+title: VTP - Server e Client
+description: Laboratorio I - Condivisione delle VLAN tra switch Cisco con VTP
+---
+
+import { Steps } from '@six-tech/starlight-theme-six/components';
+import { Aside } from "@astrojs/starlight/components";
+import { default as Callout } from "/src/components/Callout.astro";
+
+Con più switch, creare le stesse VLAN a mano su ciascuno è lungo e soggetto a errori. Il **VTP** (VLAN Trunking Protocol) è un protocollo proprietario Cisco che propaga automaticamente le VLAN da uno switch **server** agli altri switch del **dominio VTP**. Le VLAN si configurano su un solo switch e gli altri le ricevono.
+
+## Modalità VTP
+
+| Modalità        | Crea, modifica ed elimina VLAN | Propaga le VLAN  | Si sincronizza con gli altri |
+|-----------------|:------------------------------:|:----------------:|:----------------------------:|
+| **Server**      |               Sì               |        Sì        |              Sì              |
+| **Client**      |               No               |   Sì (inoltra)   |              Sì              |
+| **Transparent** |      Sì (solo in locale)       | Inoltra soltanto |              No              |
+
+<Aside type="note">
+Il VTP funziona **solo sulle porte trunk**. I due switch devono quindi essere collegati con un trunk, e le porte di accesso non trasportano gli annunci VTP.
+</Aside>
+
+<Callout icon="information" title="Scenario di esempio">
+
+| Elemento       | Valore                                                 |
+|----------------|--------------------------------------------------------|
+| Dominio VTP    | `SCUOLA`                                               |
+| Password       | `cisco123`                                             |
+| SW1            | VTP **server** (crea le VLAN)                          |
+| SW2            | VTP **client** (riceve le VLAN)                        |
+| Collegamento   | Trunk tra SW1 Fa0/24 e SW2 Fa0/24                      |
+| VLAN da creare | 10 `AMMINISTRAZIONE`, 20 `DIDATTICA`, 30 `LABORATORIO` |
+
+</Callout>
+
+## Prerequisiti
+
+- Due switch Cisco (reali o in Packet Tracer) collegati da un cavo.
+- Conoscenza della creazione delle VLAN, vista nella pagina precedente.
+- Entrambi gli switch senza VLAN personalizzate e con lo stesso **dominio** e la stessa **password**.
+
+## Procedura
+
+<Steps>
+
+### Configurare il trunk su entrambi gli switch
+
+Il collegamento tra i due switch deve essere un trunk. Esegui questi comandi su **SW1** e su **SW2**:
+
+```bash
+Switch(config)# interface fastEthernet 0/24
+Switch(config-if)# switchport mode trunk
+Switch(config-if)# exit
+```
+
+<Aside type="tip">
+Su alcuni modelli la porta richiede prima `switchport trunk encapsulation dot1q`. Se il comando `switchport mode trunk` dà errore, esegui prima quello.
+</Aside>
+
+### Configurare SW1 come VTP server
+
+```bash
+SW1(config)# hostname SW1
+SW1(config)# vtp mode server
+SW1(config)# vtp domain SCUOLA
+SW1(config)# vtp password cisco123
+SW1(config)# vtp version 2
+```
+
+### Configurare SW2 come VTP client
+
+```bash
+SW2(config)# hostname SW2
+SW2(config)# vtp mode client
+SW2(config)# vtp domain SCUOLA
+SW2(config)# vtp password cisco123
+SW2(config)# vtp version 2
+```
+
+<Aside type="caution" title="Attenzione">
+Dominio e password devono essere **identici** su tutti gli switch. Se il nome del dominio è diverso, le VLAN non vengono sincronizzate. Il nome del dominio rispetta maiuscole e minuscole.
+</Aside>
+
+### Creare le VLAN sul server
+
+Le VLAN si creano **solo su SW1**:
+
+```bash
+SW1(config)# vlan 10
+SW1(config-vlan)# name AMMINISTRAZIONE
+SW1(config-vlan)# exit
+SW1(config)# vlan 20
+SW1(config-vlan)# name DIDATTICA
+SW1(config-vlan)# exit
+SW1(config)# vlan 30
+SW1(config-vlan)# name LABORATORIO
+SW1(config-vlan)# end
+```
+
+### Verificare la propagazione sul client
+
+Dopo qualche secondo, su **SW2** controlla che le VLAN siano arrivate:
+
+```bash
+SW2# show vlan brief
+```
+
+L'output deve elencare le VLAN 10, 20 e 30, anche se non le hai create su SW2.
+
+### Assegnare le porte di accesso
+
+Le VLAN sono state propagate, ma le **porte** vanno assegnate su ogni switch, perché il VTP non lo fa. Su SW2, ad esempio:
+
+```bash
+SW2(config)# interface range fastEthernet 0/1 - 5
+SW2(config-if-range)# switchport mode access
+SW2(config-if-range)# switchport access vlan 10
+SW2(config-if-range)# end
+```
+
+### Salvare la configurazione
+
+```bash
+SW1# copy running-config startup-config
+SW2# copy running-config startup-config
+```
+
+</Steps>
+
+## Verificare lo stato del VTP
+
+```bash
+SW1# show vtp status
+```
+
+Nell'output controlla in particolare:
+
+| Campo                      | Significato                                         |
+|----------------------------|-----------------------------------------------------|
+| `VTP Operating Mode`       | Modalità dello switch (Server, Client, Transparent) |
+| `VTP Domain Name`          | Dominio a cui appartiene lo switch                  |
+| `Configuration Revision`   | Numero di revisione della configurazione VLAN       |
+| `Number of existing VLANs` | Numero di VLAN conosciute                           |
+
+## Comandi utili
+
+| Comando                    | Funzione                                         |
+|----------------------------|--------------------------------------------------|
+| `show vtp status`          | Mostra modalità, dominio e revisione VTP         |
+| `show vtp password`        | Mostra la password VTP configurata               |
+| `show interfaces trunk`    | Elenca le porte trunk attive                     |
+| `show vlan brief`          | Elenca le VLAN e le porte associate              |
+| `vtp mode transparent`     | Imposta lo switch in modalità transparent        |
+
+## Problemi frequenti
+
+<Aside type="caution" title="Revision number">
+Il VTP sovrascrive le VLAN di uno switch con quelle dello switch che ha il **numero di revisione più alto**. Se colleghi alla rete uno switch con una revisione più alta, per esempio uno usato in un altro laboratorio, può **cancellare le VLAN dell'intera rete**. Prima di collegare uno switch nuovo, azzera la revisione cambiando il nome del dominio o impostando temporaneamente `vtp mode transparent`.
+</Aside>
+
+- **Le VLAN non arrivano sul client:** verifica con `show interfaces trunk` che il trunk sia attivo, e controlla dominio, password e versione VTP.
+- **Sul client non puoi creare VLAN:** è il comportamento previsto. Per modificare le VLAN usa il server.
+- **Le porte non sono nella VLAN corretta:** il VTP propaga solo l'esistenza delle VLAN, non l'assegnazione delle porte.
+
+## Esercizio
+
+1. Configura SW1 come server e SW2 come client con dominio `SCUOLA`.
+2. Crea sul server le VLAN 40 (`OSPITI`) e 50 (`SERVER`) e verifica che compaiano sul client.
+3. Prova a creare una VLAN sul client e osserva il messaggio di errore.
+4. Aggiungi SW3 in modalità `transparent` tra SW1 e SW2 e verifica che le VLAN continuino a propagarsi.
+5. Assegna due PC alla stessa VLAN su switch diversi e verifica con `ping` che comunichino.
