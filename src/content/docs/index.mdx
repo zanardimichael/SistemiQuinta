@@ -1,11 +1,12 @@
 ---
-title: Dispensa di Sistemi e Reti - Quinta
+title: Sistemi e Reti - Quinta
 description: Dispensa del corso di Sistemi e Reti
 template: splash # Remove or comment out this line to display the site sidebar on this page.
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import {Card, CardGrid, LinkCard} from '@astrojs/starlight/components';
 import { HeroX } from '@six-tech/starlight-theme-six/components';
+import { default as CardLink } from "/src/components/CardLink.astro";
 import heroImage from '/public/sistemi.jpg';
 
 <HeroX
@@ -22,9 +23,9 @@ import heroImage from '/public/sistemi.jpg';
 />
 
 <CardGrid>
-	<Card title="Comandi" icon="seti:powershell">
+	<CardLink title="Comandi" icon="seti:powershell" href="lezioni/cisco/01-creazione-vlan">
 		Comandi CISCO e Packet Tracer
-	</Card>
+	</CardLink>
 	<Card title="Teoria" icon="open-book">
 		Crittografia, VLAN, VPN e Reti Strutturate
 	</Card>

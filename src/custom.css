@@ -52,7 +52,7 @@ header.header,
 }
 
 .six-hero-content-wrapper {
-    padding: 7px 18px;
+    padding: 9px 20px;
     border-radius: 30px;
     background-color: #070a12;
 }
@@ -63,4 +63,8 @@ table {
 
 .card-grid {
     padding: 0 3em;
+}
+
+.logo-size {
+    height: 2.5rem !important;
 }
