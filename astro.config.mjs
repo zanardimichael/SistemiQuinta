@@ -19,6 +19,11 @@ export default defineConfig({
 		starlight({
 			title: 'Sistemi e Reti - Quinta',
 			expressiveCode: {
+				defaultProps: {
+					overridesByLang: {
+						'cisco,ios': { frame: 'terminal' },
+					},
+				},
 				shiki: {
 					langs: [
 						{

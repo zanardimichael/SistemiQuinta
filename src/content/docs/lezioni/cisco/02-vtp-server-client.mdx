@@ -60,7 +60,7 @@ Su alcuni modelli la porta richiede prima `switchport trunk encapsulation dot1q`
 
 ### Configurare SW1 come VTP server
 
-```cisco
+```cisco title="SW1"
 SW1(config)# hostname SW1
 SW1(config)# vtp mode server
 SW1(config)# vtp domain SCUOLA
@@ -70,7 +70,7 @@ SW1(config)# vtp version 2
 
 ### Configurare SW2 come VTP client
 
-```cisco
+```cisco title="SW2"
 SW2(config)# hostname SW2
 SW2(config)# vtp mode client
 SW2(config)# vtp domain SCUOLA
@@ -86,7 +86,7 @@ Dominio e password devono essere **identici** su tutti gli switch. Se il nome de
 
 Le VLAN si creano **solo su SW1**:
 
-```cisco
+```cisco title="SW1"
 SW1(config)# vlan 10
 SW1(config-vlan)# name AMMINISTRAZIONE
 SW1(config-vlan)# exit
@@ -102,7 +102,7 @@ SW1(config-vlan)# end
 
 Dopo qualche secondo, su **SW2** controlla che le VLAN siano arrivate:
 
-```cisco
+```cisco title="SW2"
 SW2# show vlan brief
 ```
 
@@ -112,7 +112,7 @@ L'output deve elencare le VLAN 10, 20 e 30, anche se non le hai create su SW2.
 
 Le VLAN sono state propagate, ma le **porte** vanno assegnate su ogni switch, perché il VTP non lo fa. Su SW2, ad esempio:
 
-```cisco
+```cisco title="SW2"
 SW2(config)# interface range fastEthernet 0/1 - 5
 SW2(config-if-range)# switchport mode access
 SW2(config-if-range)# switchport access vlan 10
@@ -121,8 +121,11 @@ SW2(config-if-range)# end
 
 ### Salvare la configurazione
 
-```cisco
+```cisco title="SW1"
 SW1# copy running-config startup-config
+```
+
+```cisco title="SW2"
 SW2# copy running-config startup-config
 ```
 
@@ -130,7 +133,7 @@ SW2# copy running-config startup-config
 
 ## Verificare lo stato del VTP
 
-```cisco
+```cisco title="SW1"
 SW1# show vtp status
 ```
 
