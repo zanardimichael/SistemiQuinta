@@ -1,5 +1,5 @@
 ---
-title: Gestione delle VLAN sui router
+title: Router-on-a-stick
 description: Laboratorio I - Routing inter-VLAN con router-on-a-stick su router Cisco
 ---
 
@@ -7,7 +7,7 @@ import { Steps } from '@six-tech/starlight-theme-six/components';
 import { Aside } from "@astrojs/starlight/components";
 import { default as Callout } from "/src/components/Callout.astro";
 
-Le VLAN sono reti logiche separate: gli host di VLAN diverse **non possono comunicare** a livello 2. Per farli dialogare serve un dispositivo di livello 3, cioè un router, che instrada i pacchetti da una VLAN all'altra. Questa operazione si chiama **inter-VLAN routing**.
+Nella pagina precedente ([Router nativo](/lezioni/cisco/03-router-porta-per-vlan/)) ogni VLAN usava una interfaccia fisica del router. Con molte VLAN questa soluzione non scala.
 
 Con un solo cavo tra switch e router si usa la tecnica del **router-on-a-stick**: il collegamento è un trunk 802.1Q e il router crea una **subinterface** logica per ogni VLAN. Ogni subinterface fa da **default gateway** per la propria VLAN.
 
@@ -41,7 +41,7 @@ Collegamento: porta **Fa0/24** dello switch ↔ interfaccia **Gi0/0** del router
 
 La porta dello switch collegata al router deve trasportare tutte le VLAN:
 
-```bash
+```cisco
 Switch(config)# interface fastEthernet 0/24
 Switch(config-if)# switchport mode trunk
 Switch(config-if)# exit
@@ -55,7 +55,7 @@ Su alcuni modelli serve prima `switchport trunk encapsulation dot1q`. Se `switch
 
 L'interfaccia fisica **non ha indirizzo IP**: serve solo ad attivare il collegamento.
 
-```bash
+```cisco
 Router> enable
 Router# configure terminal
 Router(config)# interface gigabitEthernet 0/0
@@ -67,7 +67,7 @@ Router(config-if)# exit
 
 Per ogni VLAN si crea una subinterface, con encapsulation 802.1Q e l'indirizzo del gateway:
 
-```bash
+```cisco
 Router(config)# interface gigabitEthernet 0/0.10
 Router(config-subif)# encapsulation dot1Q 10
 Router(config-subif)# ip address 192.168.10.1 255.255.255.0
@@ -90,13 +90,13 @@ Il numero dopo `encapsulation dot1Q` deve coincidere con l'**ID della VLAN**. Il
 
 ### Verificare la configurazione
 
-```bash
+```cisco
 Router# show ip interface brief
 ```
 
 L'interfaccia fisica e le tre subinterface devono risultare `up`/`up`.
 
-```bash
+```cisco
 Router# show ip route
 ```
 
@@ -106,7 +106,7 @@ Nella tabella devono comparire le tre reti come **connected** (`C`), una per ogn
 
 Da un host della VLAN 10 esegui un `ping` verso un host della VLAN 20:
 
-```bash
+```cisco
 C:\> ping 192.168.20.10
 ```
 
@@ -114,7 +114,7 @@ Il primo pacchetto può andare perso per la risoluzione ARP. I successivi devono
 
 ### Salvare la configurazione
 
-```bash
+```cisco
 Router# copy running-config startup-config
 ```
 
@@ -124,7 +124,7 @@ Router# copy running-config startup-config
 
 Gli switch multilayer, come il Cisco 3560 o 3650, possono fare il routing inter-VLAN senza router esterno, usando le **SVI** (Switch Virtual Interface). Il trunk verso il router non serve.
 
-```bash
+```cisco
 Switch(config)# ip routing
 Switch(config)# interface vlan 10
 Switch(config-if)# ip address 192.168.10.1 255.255.255.0
@@ -135,10 +135,11 @@ Switch(config-if)# ip address 192.168.20.1 255.255.255.0
 Switch(config-if)# no shutdown
 ```
 
-| Soluzione            | Vantaggi                          | Svantaggi                                                   |
-|----------------------|-----------------------------------|-------------------------------------------------------------|
-| Router-on-a-stick    | Economico, semplice da capire     | Un solo link condiviso: può diventare un collo di bottiglia |
-| Switch layer 3 (SVI) | Veloce, instradamento in hardware | Costo maggiore, switch meno comuni nei laboratori           |
+| Soluzione            | Vantaggi                                    | Svantaggi                                                   |
+|----------------------|---------------------------------------------|-------------------------------------------------------------|
+| Porta per VLAN       | Semplicissima, nessun trunk                 | Una interfaccia del router e una porta dello switch per VLAN |
+| Router-on-a-stick    | Un solo cavo, scala con molte VLAN          | Un solo link condiviso: può diventare un collo di bottiglia |
+| Switch layer 3 (SVI) | Veloce, instradamento in hardware           | Costo maggiore, switch meno comuni nei laboratori           |
 
 ## Comandi utili
 
@@ -159,7 +160,7 @@ Switch(config-if)# no shutdown
 
 ## Esercizio
 
-1. Configura un router-on-a-stick per le VLAN 10, 20 e 30 dello scenario.
+1. Configura un router-on-a-stick per le VLAN 10, 20 e 30 dello scenario, sostituendo le tre porte separate della pagina precedente con un solo trunk.
 2. Collega un PC per VLAN e assegna IP e gateway corretti.
 3. Verifica con `ping` che i PC di VLAN diverse comunichino tra loro.
 4. Elimina la subinterface `Gi0/0.20` con `no interface gigabitEthernet 0/0.20` e osserva cosa succede ai ping verso la VLAN 20.

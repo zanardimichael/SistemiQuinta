@@ -11,11 +11,12 @@ Una **VLAN** (Virtual LAN) divide una rete fisica in più reti logiche separate.
 
 <Callout icon="information" title="Scenario di esempio">
 
-| VLAN | Nome | Porte |
-|------|------|-------|
-| 10 | AMMINISTRAZIONE | Fa0/1 - Fa0/5 |
-| 20 | DIDATTICA | Fa0/6 - Fa0/10 |
-| 30 | LABORATORIO | Fa0/11 - Fa0/15 |
+| VLAN | Nome            | Porte           |
+|------|-----------------|-----------------|
+| 10   | AMMINISTRAZIONE | Fa0/1 - Fa0/5   |
+| 20   | DIDATTICA       | Fa0/6 - Fa0/10  |
+| 30   | LABORATORIO     | Fa0/11 - Fa0/15 |
+
 </Callout>
 
 ## Prerequisiti
@@ -30,7 +31,7 @@ Una **VLAN** (Virtual LAN) divide una rete fisica in più reti logiche separate.
 
 ### Entrare in modalità di configurazione globale
 
-```bash
+```cisco
 Switch> enable
 Switch# configure terminal
 Switch(config)#
@@ -38,7 +39,7 @@ Switch(config)#
 
 ### Creare la VLAN e assegnarle un nome
 
-```bash
+```cisco
 Switch(config)# vlan 10
 Switch(config-vlan)# name AMMINISTRAZIONE
 Switch(config-vlan)# exit
@@ -58,7 +59,7 @@ Il nome è facoltativo. Se lo ometti, IOS assegna `VLANxxxx`, ad esempio `VLAN00
 
 Le porte di accesso (access port) appartengono a una sola VLAN.
 
-```bash
+```cisco
 Switch(config)# interface range fastEthernet 0/1 - 5
 Switch(config-if-range)# switchport mode access
 Switch(config-if-range)# switchport access vlan 10
@@ -77,23 +78,23 @@ Switch(config-if-range)# end
 
 ### Verificare la configurazione
 
-```bash
+```cisco
 Switch# show vlan brief
 ```
 
 L'output deve elencare le VLAN 10, 20 e 30 con le porte assegnate.
 
-```bash
+```cisco
 Switch# show interfaces fa0/1 switchport
 ```
 
 ### Salvare la configurazione
 
-```bash
+```cisco
 Switch# copy running-config startup-config
 ```
 Oppure
-```bash
+```cisco
 Switch# write
 ```
 

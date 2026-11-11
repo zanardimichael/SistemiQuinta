@@ -1,0 +1,92 @@
+---
+title: Sicurezza delle VLAN
+description: Teoria - VLAN hopping, switch spoofing, double tagging e contromisure
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import { default as Callout } from "/src/components/Callout.astro";
+
+Le VLAN separano il traffico, ma **non sono uno strumento di sicurezza** di per sé: la separazione dipende dalla configurazione degli switch. Un errore, come una porta lasciata in modalità automatica, può permettere a un attaccante di raggiungere VLAN a cui non dovrebbe accedere.
+
+<Callout icon="information" title="Prerequisiti">
+Per seguire questa pagina serve conoscere porte access e trunk, tag 802.1Q e native VLAN, descritti in [Funzionamento delle VLAN](/lezioni/teoria/vlan/01-funzionamento-vlan/).
+</Callout>
+
+## VLAN hopping
+
+Il **VLAN hopping** è un attacco che consente di inviare traffico verso una VLAN diversa da quella della porta a cui l'attaccante è collegato. Esistono due tecniche principali.
+
+| Tecnica             | Requisito per l'attacco                                    | Contromisura                                      |
+|---------------------|------------------------------------------------------------|---------------------------------------------------|
+| **Switch spoofing** | Porta con DTP attivo (`dynamic auto` o `desirable`)        | Porte in `mode access` e `switchport nonegotiate` |
+| **Double tagging**  | Porta access nella stessa VLAN della native VLAN del trunk | Native VLAN inutilizzata e diversa dalla VLAN 1   |
+
+### Switch spoofing
+
+1. L'attaccante collega un dispositivo alla porta dello switch.
+2. Il dispositivo invia messaggi **DTP** e finge di essere uno switch.
+3. La porta negozia un **trunk** con l'attaccante.
+4. L'attaccante riceve il traffico di **tutte le VLAN** consentite sul trunk e può inviare frame con il tag che preferisce.
+
+Per default molte porte Cisco usano `dynamic auto` e quindi accettano la negoziazione di un trunk.
+
+```cisco
+Switch(config-if)# switchport mode access
+Switch(config-if)# switchport nonegotiate
+```
+
+### Double tagging
+
+L'attacco sfrutta il fatto che la **native VLAN viaggia senza tag**. L'attaccante è collegato a una porta access della **native VLAN** e invia un frame con **due tag**:
+
+```text
+| MAC dest. | MAC sorg. | Tag esterno: VLAN 1 (native) | Tag interno: VLAN 20 | Payload |
+```
+
+1. Il primo switch riceve il frame e vede il tag esterno uguale alla **native VLAN**.
+2. Quando inoltra il frame sul trunk, **rimuove il tag esterno** perché la native VLAN non è taggata.
+3. Il frame arriva al secondo switch con il solo **tag interno**, VLAN 20.
+4. Il secondo switch lo inoltra nella **VLAN 20**.
+
+<Aside type="note">
+L'attacco funziona **solo in un senso**: la risposta non torna all'attaccante. Serve quindi per inviare traffico, ad esempio un attacco DoS, e non per aprire una comunicazione bidirezionale.
+</Aside>
+
+La contromisura è usare una **native VLAN dedicata**, senza porte access e diversa dalla VLAN 1:
+
+```cisco
+Switch(config)# vlan 99
+Switch(config-vlan)# name NATIVE
+Switch(config-vlan)# exit
+Switch(config)# interface fastEthernet 0/24
+Switch(config-if)# switchport trunk native vlan 99
+```
+
+## Buone pratiche
+
+- Imposta **in modo statico** il tipo di ogni porta (`access` oppure `trunk`) e disattiva DTP con `switchport nonegotiate`.
+- Non usare la **VLAN 1** per traffico utente, gestione o native VLAN.
+- Limita le VLAN ammesse sui trunk: `switchport trunk allowed vlan 10,20,30`.
+- Assegna le porte non utilizzate a una **VLAN di parcheggio** (dette anche Blackhole) senza routing e mettile in `shutdown`.
+- Configura la stessa **native VLAN** sui due lati di ogni trunk.
+
+```cisco
+Switch(config)# vlan 999
+Switch(config-vlan)# name BLACKHOLE
+Switch(config-vlan)# exit
+Switch(config)# interface range fastEthernet 0/16 - 23
+Switch(config-if-range)# switchport mode access
+Switch(config-if-range)# switchport access vlan 999
+Switch(config-if-range)# shutdown
+```
+
+<Aside type="caution" title="Attenzione">
+Queste misure sono pensate per un laboratorio didattico. In una rete reale si aggiungono altre protezioni, come `port-security` e `BPDU guard`.
+</Aside>
+
+## Riepilogo
+
+- Le VLAN separano il traffico, ma una configurazione errata può renderle aggirabili.
+- Lo **switch spoofing** sfrutta DTP e si ferma con `switchport mode access` e `nonegotiate`.
+- Il **double tagging** sfrutta la native VLAN e si ferma con una native VLAN inutilizzata.
+- Le porte non usate vanno disattivate e isolate in una VLAN dedicata.

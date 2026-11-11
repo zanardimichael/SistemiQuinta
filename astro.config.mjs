@@ -3,7 +3,8 @@ import starlight from '@astrojs/starlight';
 import starlightThemeNova from 'starlight-theme-nova';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import starlightThemeSix from '@six-tech/starlight-theme-six'
+import starlightThemeSix from '@six-tech/starlight-theme-six';
+import ciscoLang from './src/grammars/ios.tmLanguage.json' with { type: 'json' };
 
 export default defineConfig({
 	site: 'https://classeprima.zanardimichael.it',
@@ -17,6 +18,17 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Sistemi e Reti - Quinta',
+			expressiveCode: {
+				shiki: {
+					langs: [
+						{
+							...ciscoLang,
+							name: 'cisco',
+							aliases: ['ios'],
+						},
+					],
+				},
+			},
 			logo: {
 				src: '/public/favicon.svg',
 			},
@@ -73,11 +85,21 @@ export default defineConfig({
 
 			sidebar: [
 				{
-					label: '📚 Corso di ',
+					label: 'Corso di Sistemi e Reti',
 					items: [
 						{
 							label: 'Introduzione al Corso',
 							link: '/lezioni/',
+						},
+						{
+							label: 'Teoria',
+							items: [
+								{
+									label: 'VLAN',
+									autogenerate: { directory: 'lezioni/teoria/vlan' },
+									collapsed: true,
+								},
+							]
 						},
 						{
 							label: 'Laboratorio I - VLAN',

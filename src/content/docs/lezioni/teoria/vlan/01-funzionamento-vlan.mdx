@@ -1,0 +1,132 @@
+---
+title: Funzionamento delle VLAN
+description: Teoria - Standard IEEE 802.1Q, tagging, porte access e trunk, native VLAN
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import { default as Callout } from "/src/components/Callout.astro";
+
+## Il problema: un solo dominio di broadcast
+
+In una LAN con soli switch, ogni **broadcast** (ARP, DHCP Discover, ecc.) viene inoltrato su tutte le porte. Più host ci sono, più traffico inutile circola e più è ampia la superficie di esposizione, perché ogni host vede il traffico broadcast di tutti.
+
+Una **VLAN** (IEEE 802.1Q) suddivide **logicamente** uno switch in più switch virtuali. Ogni VLAN è un **dominio di broadcast separato**: un broadcast generato in una VLAN non esce da quella VLAN.
+
+<Callout icon="information" title="In sintesi">
+1 VLAN = 1 dominio di broadcast = 1 sottorete IP (di norma).
+</Callout>
+
+## Cosa fa lo switch
+
+Lo switch associa ogni frame a una VLAN e applica le regole di inoltro **solo all'interno di quella VLAN**.
+
+1. Il frame entra da una porta.
+2. Lo switch determina la **VLAN di appartenenza**: dalla porta, se è *access*, oppure dal **tag 802.1Q**, se è *trunk*.
+3. Cerca il MAC di destinazione nella tabella MAC **di quella VLAN**.
+4. Se lo trova, inoltra il frame sulla porta indicata. Se non lo trova, o se il frame è broadcast o multicast, lo inoltra (**flooding**) **solo sulle porte della stessa VLAN**.
+
+La **tabella MAC è per VLAN**: lo stesso indirizzo MAC può comparire in VLAN diverse, associato a porte diverse.
+
+```cisco
+Switch# show mac address-table
+          Mac Address Table
+-------------------------------------------
+Vlan    Mac Address       Type        Ports
+----    -----------       --------    -----
+  10    0001.9645.7a11    DYNAMIC     Fa0/1
+  20    0001.9645.7a11    DYNAMIC     Fa0/7
+```
+
+## Il tag 802.1Q
+
+Per distinguere le VLAN su un collegamento condiviso, lo switch inserisce nel frame Ethernet un campo da **4 byte** tra l'indirizzo MAC sorgente e il campo EtherType/Length.
+
+| Campo                              | Dimensione | Descrizione                                                    |
+|------------------------------------|:----------:|----------------------------------------------------------------|
+| **TPID** (Tag Protocol Identifier) |   16 bit   | Vale sempre `0x8100`: indica che il frame è taggato            |
+| **PCP** (Priority Code Point)      |   3 bit    | Priorità di classe di servizio (802.1p), da 0 a 7              |
+| **DEI** (Drop Eligible Indicator)  |   1 bit    | Indica se il frame può essere scartato in caso di congestione  |
+| **VID** (VLAN Identifier)          |   12 bit   | Numero della VLAN                                              |
+
+Frame Ethernet II con tag 802.1Q:
+
+```text
+| MAC dest. | MAC sorg. | TPID 0x8100 | PCP | DEI  | VID  | EtherType | Payload | FCS |
+|    6 B    |    6 B    |     2 B     |  2 B (3+1+12 bit) |    2 B    | 46-1500 | 4 B |
+```
+
+- Il tag aggiunge 4 byte: la dimensione massima del frame passa da **1518 a 1522 byte**.
+- Poiché il frame cambia, lo switch **ricalcola la FCS** quando aggiunge o toglie il tag.
+- Con 12 bit il VID va da 0 a 4095, ma `0` e `4095` sono **riservati**: le VLAN utilizzabili sono **1-4094**.
+
+### Intervalli di VLAN su Cisco
+
+| Intervallo  | Tipo      | Note                                                  |
+|-------------|-----------|-------------------------------------------------------|
+| 1           | Default   | Non può essere eliminata né rinominata                |
+| 2 - 1001    | Normale   | Propagabile con VTP v1 e v2                           |
+| 1002 - 1005 | Riservate | Usate per Token Ring e FDDI, non eliminabili          |
+| 1006 - 4094 | Estesa    | Richiede VTP v3 oppure la modalità transparent        |
+
+## Tipi di porta
+
+### Porta access
+
+- Appartiene a **una sola VLAN**.
+- Collega un dispositivo finale (PC, stampante, server).
+- I frame escono **senza tag**: il dispositivo non sa nulla delle VLAN.
+- Quando un frame senza tag entra dalla porta, lo switch lo associa alla VLAN configurata.
+
+### Porta trunk
+
+- Trasporta **più VLAN** sullo stesso collegamento.
+- Collega switch con switch, oppure switch con router o server.
+- I frame viaggiano **con il tag 802.1Q**, che identifica la VLAN di ogni frame.
+- Di default il trunk consente **tutte** le VLAN. Con `switchport trunk allowed vlan` si può limitare l'elenco.
+
+| Caratteristica     | Access      | Trunk                           |
+|--------------------|-------------|---------------------------------|
+| VLAN trasportate   | 1           | Molte                           |
+| Frame in uscita    | Senza tag   | Con tag (tranne la native VLAN) |
+| Dispositivo tipico | Host finale | Altro switch, router            |
+
+<Aside type="note">
+Esiste anche il protocollo proprietario Cisco **ISL**, ormai obsoleto. Gli switch moderni supportano solo **802.1Q**, e `switchport trunk encapsulation dot1q` serve solo sui modelli che supportano entrambi.
+</Aside>
+
+## Native VLAN
+
+Su una porta trunk, i frame della **native VLAN** viaggiano **senza tag**. Di default è la VLAN 1.
+
+- Se uno switch riceve un frame **senza tag** su un trunk, lo associa alla native VLAN.
+- La native VLAN deve essere **uguale sui due lati** del trunk. Se è diversa, i frame finiscono nella VLAN sbagliata e IOS segnala il problema tramite CDP (`%CDP-4-NATIVE_VLAN_MISMATCH`).
+- Per sicurezza si consiglia una native VLAN dedicata e inutilizzata, diversa dalla VLAN 1.
+
+```cisco
+Switch(config-if)# switchport trunk native vlan 99
+```
+
+## Comunicazione tra VLAN
+
+Due host in VLAN diverse **non comunicano a livello 2**, nemmeno se sono sullo stesso switch. Ogni VLAN è una rete IP distinta, quindi serve un dispositivo di **livello 3**:
+
+- un **router** con una subinterface per VLAN (*router-on-a-stick*);
+- uno **switch layer 3** con le interfacce virtuali **SVI**.
+
+Il router riceve il frame, ne rimuove l'header di livello 2, lo instrada in base all'indirizzo IP e lo reincapsula con il tag della VLAN di destinazione.
+
+## Altri aspetti da conoscere
+
+- **Spanning Tree per VLAN:** Cisco usa PVST+, con un'istanza STP separata per ogni VLAN. Ogni VLAN può quindi avere un root bridge diverso.
+- **DTP (Dynamic Trunking Protocol):** protocollo Cisco che negozia in automatico se una porta diventa trunk. Per sicurezza conviene impostare le porte in modo statico con `switchport mode access` oppure `switchport mode trunk`, e disattivare la negoziazione con `switchport nonegotiate`.
+- **Voice VLAN:** una porta access può ospitare un telefono IP in una VLAN dedicata (`switchport voice vlan`), mentre il PC collegato dietro il telefono resta nella VLAN dati.
+
+## Riepilogo
+
+- Una VLAN è un **dominio di broadcast logico** definito dal VID a 12 bit del tag 802.1Q.
+- Le porte **access** appartengono a una VLAN e inviano frame senza tag.
+- Le porte **trunk** trasportano più VLAN con il tag, tranne la **native VLAN**.
+- La **tabella MAC** e il **flooding** sono limitati alla singola VLAN.
+- Per comunicare tra VLAN serve il **routing di livello 3**.
+
+Nella pagina successiva vediamo i rischi di sicurezza legati alle VLAN.

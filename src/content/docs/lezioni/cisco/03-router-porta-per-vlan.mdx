@@ -1,0 +1,173 @@
+---
+title: Router nativo
+description: Laboratorio I - Routing inter-VLAN con un'interfaccia del router per ogni VLAN
+---
+
+import { Steps } from '@six-tech/starlight-theme-six/components';
+import { Aside } from "@astrojs/starlight/components";
+import { default as Callout } from "/src/components/Callout.astro";
+
+Le VLAN sono reti logiche separate: gli host di VLAN diverse **non possono comunicare** a livello 2. Per farli dialogare serve un dispositivo di livello 3, cioè un router, che instrada i pacchetti da una VLAN all'altra. Questa operazione si chiama **inter-VLAN routing**.
+
+La soluzione più semplice è la **porta per VLAN**: per ogni VLAN si usa una **porta access** dello switch collegata con un cavo a una **interfaccia fisica diversa del router**. L'interfaccia del router riceve l'indirizzo IP e fa da **default gateway** della VLAN. Non servono trunk, tag 802.1Q o subinterface.
+
+<Aside type="note">
+Dal punto di vista del router, ogni interfaccia è collegata a una **rete diversa**, come se fossero tre LAN separate. Il router non "sa" che dietro ci sia uno switch con delle VLAN.
+</Aside>
+
+<Callout icon="information" title="Scenario di esempio">
+
+| VLAN | Nome            | Rete            | Gateway (router)           | Porta switch | Interfaccia router |
+|------|-----------------|-----------------|----------------------------|--------------|--------------------|
+| 10   | AMMINISTRAZIONE | 192.168.10.0/24 | 192.168.10.1               | Fa0/21       | `Gi0/0`            |
+| 20   | DIDATTICA       | 192.168.20.0/24 | 192.168.20.1               | Fa0/22       | `Gi0/1`            |
+| 30   | LABORATORIO     | 192.168.30.0/24 | 192.168.30.1               | Fa0/23       | `Gi0/2`            |
+
+</Callout>
+
+## Prerequisiti
+
+- Uno switch con le VLAN 10, 20 e 30 già create (vedi le pagine precedenti).
+- Un router Cisco con **almeno tre interfacce** libere, reale o in Packet Tracer.
+- Gli host configurati con IP della propria VLAN, maschera `255.255.255.0` e default gateway del router per quella VLAN.
+
+## Procedura
+
+<Steps>
+
+### Assegnare le porte dello switch collegate al router
+
+Ogni porta verso il router è una **porta access** della VLAN corrispondente:
+
+```cisco
+Switch(config)# interface fastEthernet 0/21
+Switch(config-if)# switchport mode access
+Switch(config-if)# switchport access vlan 10
+Switch(config-if)# exit
+
+Switch(config)# interface fastEthernet 0/22
+Switch(config-if)# switchport mode access
+Switch(config-if)# switchport access vlan 20
+Switch(config-if)# exit
+
+Switch(config)# interface fastEthernet 0/23
+Switch(config-if)# switchport mode access
+Switch(config-if)# switchport access vlan 30
+Switch(config-if)# end
+```
+
+### Configurare le interfacce del router
+
+Ogni interfaccia riceve l'indirizzo che fa da gateway della sua VLAN e va attivata:
+
+```cisco
+Router> enable
+Router# configure terminal
+
+Router(config)# interface gigabitEthernet 0/0
+Router(config-if)# ip address 192.168.10.1 255.255.255.0
+Router(config-if)# no shutdown
+Router(config-if)# exit
+
+Router(config)# interface gigabitEthernet 0/1
+Router(config-if)# ip address 192.168.20.1 255.255.255.0
+Router(config-if)# no shutdown
+Router(config-if)# exit
+
+Router(config)# interface gigabitEthernet 0/2
+Router(config-if)# ip address 192.168.30.1 255.255.255.0
+Router(config-if)# no shutdown
+Router(config-if)# end
+```
+
+<Aside type="caution" title="Attenzione">
+Il collegamento deve rispettare la corrispondenza: la porta dello switch assegnata alla VLAN 10 deve andare all'interfaccia del router che ha l'IP della rete della VLAN 10. Un cavo sulla porta sbagliata fa finire gli host con un gateway irraggiungibile.
+</Aside>
+
+### Verificare la configurazione
+
+Sullo switch controlla che le porte siano nella VLAN corretta:
+
+```cisco
+Switch# show vlan brief
+```
+
+Sul router controlla lo stato delle interfacce:
+
+```cisco
+Router# show ip interface brief
+```
+
+Le tre interfacce devono risultare `up`/`up`.
+
+```cisco
+Router# show ip route
+```
+
+Nella tabella devono comparire le tre reti come **connected** (`C`).
+
+### Testare la comunicazione tra VLAN
+
+Da un host della VLAN 10 esegui un `ping` verso un host della VLAN 20:
+
+```cisco
+C:\> ping 192.168.20.10
+```
+
+Il primo pacchetto può andare perso per la risoluzione ARP. I successivi devono ricevere risposta.
+
+### Salvare la configurazione
+
+```cisco
+Switch# copy running-config startup-config
+Router# copy running-config startup-config
+```
+
+</Steps>
+
+## Come passa il traffico
+
+Quando un host della VLAN 10 invia un pacchetto a un host della VLAN 20:
+
+1. Il pacchetto va al gateway `192.168.10.1`, cioè al router, tramite la porta Fa0/21 della VLAN 10.
+2. Il router lo riceve su `Gi0/0` e consulta la tabella di routing.
+3. Il router lo inoltra da `Gi0/1`, l'interfaccia della rete `192.168.20.0/24`.
+4. Lo switch lo riceve sulla porta Fa0/22, che appartiene alla VLAN 20, e lo consegna all'host di destinazione.
+
+Il pacchetto passa dallo switch **due volte**, ogni volta in una VLAN diversa.
+
+## Vantaggi e limiti
+
+| Vantaggi                                         | Limiti                                                         |
+|--------------------------------------------------|----------------------------------------------------------------|
+| Semplice da configurare e da capire              | Serve **una interfaccia del router per ogni VLAN**             |
+| Non richiede trunk né 802.1Q sul router          | Occupa anche una porta dello switch per ogni VLAN              |
+| Ogni VLAN ha un collegamento dedicato di banda   | Non scala: con 20 VLAN servono 20 interfacce e 20 cavi        |
+
+<Aside type="tip">
+Per risparmiare interfacce si usa un solo cavo con un trunk 802.1Q e le subinterface. Lo vediamo nella pagina successiva: [Router-on-a-stick](/lezioni/cisco/04-router-on-a-stick/).
+</Aside>
+
+## Comandi utili
+
+| Comando                   | Funzione                                      |
+|---------------------------|-----------------------------------------------|
+| `show ip interface brief` | Stato e indirizzi delle interfacce del router |
+| `show ip route`           | Tabella di routing del router                 |
+| `show vlan brief`         | VLAN e porte assegnate sullo switch           |
+| `show interfaces status`  | Stato delle porte dello switch                |
+
+## Problemi frequenti
+
+- **Il ping tra VLAN non funziona:** controlla che il gateway configurato sugli host sia l'IP dell'interfaccia del router della loro VLAN.
+- **L'interfaccia del router è `down`:** verifica il cavo, il comando `no shutdown` e che la porta dello switch non sia in `shutdown`.
+- **L'host non raggiunge il gateway:** assicurati che la porta dello switch verso il router sia nella VLAN giusta con `show vlan brief`.
+- **Rete duplicata:** due interfacce del router non possono avere indirizzi della stessa rete. IOS segnala un overlap.
+
+## Esercizio
+
+1. Configura lo scenario con tre VLAN e tre interfacce del router.
+2. Collega un PC per VLAN e assegna IP e gateway corretti.
+3. Verifica con `ping` che i PC di VLAN diverse comunichino tra loro.
+4. Sposta il cavo di una VLAN su una porta dello switch assegnata a un'altra VLAN e osserva cosa succede ai ping.
+5. Rifletti: quante interfacce servirebbero con 10 VLAN? Come si può evitare il problema?
